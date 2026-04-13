@@ -35,8 +35,43 @@ A Full-Stack ordering system designed for university students. It features a cle
 # Navegar a la carpeta / Navigate to folder
 cd backend_api    
 
+
+
 # Activar entorno virtual / Activate venv
 .\.venv\Scripts\activate
 
 # Iniciar servidor / Start Server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
+### 2. Frontend Setup (Terminal 2)
+```bash
+# Navegar a la carpeta / Navigate to folder
+cd app_estudiantes
+
+# Iniciar Expo con túnel / Start Expo with tunnel
+npx expo start --tunnel
+```
+### ⚠️ Troubleshooting / Solución de Problemas
+
+| Error | Cause / Causa | Solution / Solución |
+| :--- | :--- | :--- |
+| **Network Request Failed** | IP mismatch (IP cambió) | Update `API_URL` in `index.tsx` with your current IPv4. |
+| **AbortError** | Server Offline (Servidor apagado) | Ensure the Python terminal shows "Application startup complete". |
+| **No module named uvicorn** | Venv issues (Entorno virtual) | Run `pip install fastapi uvicorn mysql-connector-python`. |
+| **Connection Refused** | Firewall blocking (Bloqueo) | Disable Windows Firewall or add an inbound rule for port 8000. |
+
+
+
+
+📊 Database Schema (SQL)
+El sistema utiliza una estructura relacional de tres tablas principales:
+
+Productos: Catálogo de alimentos y bebidas.
+
+Pedidos: Cabecera de la orden con nombre y total.
+
+Detalle_Pedidos: Desglose de productos por orden.
+
+Developed by: Rodrigo Martínez Martínez
+Major: Ingeniería en Cibernética (8vo Semestre)
+Institution: Universidad Marista de Guadalajara (UMG)
