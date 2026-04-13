@@ -1,74 +1,70 @@
-#☕ Cafetería UMG - Sistema de Pedidos Full-Stack
+☕ Cafetería UMG - Sistema de Gestión de Pedidos
+Este proyecto es una solución Full-Stack desarrollada para digitalizar el proceso de pedidos en la cafetería universitaria. Permite a los estudiantes visualizar el menú en tiempo real, filtrar por categorías y enviar órdenes directamente a una base de datos centralizada.
 
-Este proyecto es un sistema de pedidos en tiempo real que conecta una aplicación móvil (React Native/Expo) con una base de datos MySQL a través de una API construida con Python (FastAPI).
+🛠️ Arquitectura del Sistema
+El ecosistema funciona mediante la integración de tres capas tecnológicas:
 
-🚀 Guía de Inicio Rápido
-Para que el sistema funcione, es necesario tener dos terminales abiertas simultáneamente en VS Code.
+Base de Datos (MySQL): Almacenamiento persistente de productos, pedidos y detalles de transacciones.
 
-Terminal 1: Backend (El Cerebro) 🧠
-Esta terminal gestiona la conexión con la base de datos y procesa los pedidos.
+Backend (Python/FastAPI): API REST que gestiona la lógica de negocio, conexión a DB y comunicación con el cliente móvil.
 
-Navega a la carpeta: cd backend_api
+Frontend (React Native/Expo): Aplicación móvil multiplataforma con interfaz intuitiva para el usuario.
 
-Activa el entorno virtual: .\.venv\Scripts\activate
+🚀 Guía de Ejecución (Paso a Paso)
+Para poner en marcha el sistema, es indispensable seguir este orden de encendido:
 
-Inicia el servidor: ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+1. Preparar la Base de Datos 🗄️
+Asegúrate de que el módulo MySQL esté activo en XAMPP.
 
-*Nota: El `--host 0.0.0.0` es vital para permitir que dispositivos externos (tu celular) se conecten a la PC.*
+Ejecuta el script de creación de tablas e inserta el catálogo inicial de productos.
 
-Terminal 2: Frontend (La App) 📱
-Esta terminal compila la interfaz que ve el estudiante.
-
-Navega a la carpeta: cd app_estudiantes
-
-Inicia Expo:
+2. Iniciar el Backend (Terminal 1) 🧠
+Navega a la carpeta del servidor y activa el entorno virtual para garantizar la disponibilidad de las dependencias.
 
 Bash
+cd backend_api
+.\.venv\Scripts\activate
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+Nota: Usar --host 0.0.0.0 es fundamental para que el servidor sea visible por el celular en la red local.
+
+3. Iniciar la App (Terminal 2) 📱
+Navega a la carpeta de la aplicación y arranca el entorno de desarrollo de Expo.
+
+Bash
+cd app_estudiantes
 npx expo start --tunnel
-Nota: Usamos --tunnel para saltar restricciones de red y facilitar la conexión con Expo Go.
+⚠️ Solución de Fallos Comunes (Troubleshooting)
+Si la aplicación no carga los productos o muestra errores de conexión (Network Request Failed), verifica estos puntos clave que solucionamos durante el desarrollo:
 
-🛠️ Solución de Problemas (Troubleshooting)
-Si la app inicia pero no ves los productos o marca error de conexión, revisa estos puntos que son los fallos más comunes:
+🔄 Sincronización de IP Local
+Las direcciones IPv4 pueden cambiar al reconectar el equipo a la red.
 
-1. Dirección IP Desactualizada (Error: Network Request Failed)
-Las IPs locales cambian. Si la app no carga:
+Abre la terminal y ejecuta ipconfig.
 
-Abre una terminal y escribe ipconfig.
+Identifica tu Dirección IPv4 actual.
 
-Copia tu Dirección IPv4 actual.
-
-En app_estudiantes/app/(tabs)/index.tsx, actualiza la constante API_URL:
+Actualiza la constante en app_estudiantes/app/(tabs)/index.tsx:
 
 JavaScript
 const API_URL = 'http://TU_NUEVA_IP:8000';
-2. Firewall de Windows
-A veces Windows bloquea la entrada del celular aunque la IP sea correcta.
+🛡️ Restricciones del Firewall
+Windows Defender puede bloquear peticiones externas al puerto 8000.
 
-Solución: Desactiva temporalmente el Firewall de Windows o crea una regla de entrada para el puerto 8000.
+Solución: Crea una regla de entrada para el puerto o desactiva temporalmente el Firewall durante las pruebas.
 
-3. Estado de MySQL (XAMPP)
-Si el backend marca errores de conexión:
+📦 Módulos de Python
+Si el comando uvicorn no es reconocido, asegúrate de estar dentro del entorno virtual o reinstala las dependencias críticas:
 
-Asegúrate de que el módulo MySQL en XAMPP esté en verde.
+Bash
+pip install fastapi uvicorn mysql-connector-python
+🎯 Funcionalidades Implementadas
+[x] Persistencia de Datos: Conexión real con MySQL.
 
-Verifica que la tabla Productos tenga datos insertados, de lo contrario la app dirá "No hay productos en esta categoría".
+[x] Interfaz Dinámica: Navegación por pestañas (Comida / Bebidas).
 
-4. Entorno Virtual de Python
-Si recibes el error No module named uvicorn:
+[x] Gestión de Carrito: Selección de múltiples productos por orden.
 
-Asegúrate de que el entorno esté activo (debe aparecer (.venv) en la terminal).
+[x] Identificación: Registro de pedidos por nombre o matrícula del alumno.
 
-Si persiste, reinstala las dependencias: pip install fastapi uvicorn mysql-connector-python.
-
-📋 Requisitos del Sistema
-Python 3.10+
-
-Node.js & npm
-
-XAMPP (para el servidor MySQL)
-
-Expo Go instalado en el dispositivo móvil.
-
-📸 Avances del Proyecto
-Actualmente, el sistema ya permite filtrar por Comida y Bebidas, registrar el nombre del estudiante y enviar la orden directamente a la base de datos MySQL.
+Desarrollado por: Rodrigo Martínez - Ingeniería en Cibernética
+Institución: Universidad Marista de Guadalajara (UMG)
