@@ -1,4 +1,5 @@
-☕ Cafetería UMG - Sistema de Pedidos Full-Stack
+#☕ Cafetería UMG - Sistema de Pedidos Full-Stack
+
 Este proyecto es un sistema de pedidos en tiempo real que conecta una aplicación móvil (React Native/Expo) con una base de datos MySQL a través de una API construida con Python (FastAPI).
 
 🚀 Guía de Inicio Rápido
