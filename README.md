@@ -73,5 +73,7 @@ Pedidos: Cabecera de la orden con nombre y total.
 Detalle_Pedidos: Desglose de productos por orden.
 
 Developed by: Rodrigo Martínez Martínez
+
 Major: Ingeniería en Cibernética (8vo Semestre)
+
 Institution: Universidad Marista de Guadalajara (UMG)
