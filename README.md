@@ -1,4 +1,6 @@
 ☕ Cafetería UMG - Sistema de Gestión de Pedidos
+
+
 Este proyecto es una solución Full-Stack desarrollada para digitalizar el proceso de pedidos en la cafetería universitaria. Permite a los estudiantes visualizar el menú en tiempo real, filtrar por categorías y enviar órdenes directamente a una base de datos centralizada.
 
 🛠️ Arquitectura del Sistema
