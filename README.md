@@ -76,6 +76,13 @@ Developed by: Rodrigo Martínez Martínez
 
 Major: Ingeniería en Cibernética (8vo Semestre)
 
+##UPDATES
+
+esta nueva version ya cuenta con la base de datos con los precios reales de la cafeteria
+ya cuenta con orden de pedidos para tener un mejor control de lo que se pide y quien
+la bd no colapsa con mas de 5 pedidos
+expo actualizado a la ultima version
+
 Institution: Universidad Marista de Guadalajara (UMG)
 
 ITS NOT FINISH YET
