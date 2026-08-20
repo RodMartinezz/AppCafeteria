@@ -4,9 +4,8 @@ from pydantic import BaseModel
 from typing import List
 import mysql.connector
 
-app = FastAPI(title="Cafetería UMG - Base de Datos Real")
+app = FastAPI(title="Cafetería UMG - API")
 
-# Configuración de CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,12 +13,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- CONFIGURACIÓN DE DB (Ajusta con tus datos de MySQL) ---
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
-        user="root",      # Tu usuario de MySQL
-        password="",      # Tu contraseña (deja vacío si usas XAMPP)
+        user="root",
+        password="",
         database="cafeteria_umg"
     )
 
@@ -31,10 +29,11 @@ class ItemPedido(BaseModel):
 
 class NuevoPedido(BaseModel):
     nombre_estudiante: str
+    matricula: str
+    metodo_pago: str  # 'Efectivo' o 'Tarjeta'
     items: List[ItemPedido]
 
 # --- RUTAS ---
-
 @app.get("/menu")
 def obtener_menu():
     try:
@@ -50,20 +49,23 @@ def obtener_menu():
 
 @app.post("/ordenar")
 def crear_pedido(pedido: NuevoPedido):
+    conn = None
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Calcular el total primero
-        total = 0
+        # 1. Calcular el total
+        total = 0.0
         for item in pedido.items:
             cursor.execute("SELECT precio FROM Productos WHERE id_producto = %s", (item.id_producto,))
-            precio = cursor.fetchone()[0]
-            total += precio * item.cantidad
+            fila = cursor.fetchone()
+            if not fila:
+                raise HTTPException(status_code=400, detail=f"Producto con ID {item.id_producto} no encontrado")
+            total += float(fila[0]) * item.cantidad
         
-        # 2. Insertar en tabla Pedidos
-        sql_pedido = "INSERT INTO Pedidos (nombre_estudiante, total) VALUES (%s, %s)"
-        cursor.execute(sql_pedido, (pedido.nombre_estudiante, total))
+        # 2. Insertar en Pedidos
+        sql_pedido = "INSERT INTO Pedidos (nombre_estudiante, matricula, total, metodo_pago) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql_pedido, (pedido.nombre_estudiante, pedido.matricula, total, pedido.metodo_pago))
         id_pedido = cursor.lastrowid
         
         # 3. Insertar detalles
@@ -74,28 +76,9 @@ def crear_pedido(pedido: NuevoPedido):
         conn.commit()
         cursor.close()
         conn.close()
-        return {"mensaje": "Pedido guardado en DB", "numero_orden": id_pedido}
+        return {"mensaje": "Pedido registrado", "numero_orden": id_pedido, "total": total}
     except Exception as e:
-        if conn: conn.rollback()
+        if conn and conn.is_connected():
+            conn.rollback()
+            conn.close()
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/cocina/pendientes")
-def ver_pendientes():
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    # Traemos pedidos que no han sido entregados
-    cursor.execute("SELECT * FROM Pedidos WHERE estado != 'Entregado' ORDER BY fecha_hora ASC")
-    pendientes = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return {"pendientes": pendientes}
-
-@app.put("/cocina/listo/{id_pedido}")
-def marcar_listo(id_pedido: int):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE Pedidos SET estado = 'Listo' WHERE id_pedido = %s", (id_pedido,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-    return {"mensaje": "Pedido actualizado"}
