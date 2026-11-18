@@ -82,3 +82,57 @@ def crear_pedido(pedido: NuevoPedido):
             conn.rollback()
             conn.close()
         raise HTTPException(status_code=500, detail=str(e))
+    # --- RUTAS PARA LA COCINA (EMPLEADOS) ---
+
+@app.get("/pedidos_activos")
+def obtener_pedidos_activos():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Obtenemos los pedidos que NO están entregados
+        cursor.execute("""
+            SELECT id_pedido, nombre_estudiante, matricula, estado, fecha_hora, total 
+            FROM Pedidos 
+            WHERE estado != 'Entregado' 
+            ORDER BY fecha_hora ASC
+        """)
+        pedidos = cursor.fetchall()
+        
+        # A cada pedido le agregamos sus detalles (lo que pidieron)
+        for pedido in pedidos:
+            cursor.execute("""
+                SELECT d.cantidad, d.notas, p.nombre 
+                FROM Detalle_Pedidos d
+                JOIN Productos p ON d.id_producto = p.id_producto
+                WHERE d.id_pedido = %s
+            """, (pedido['id_pedido'],))
+            pedido['items'] = cursor.fetchall()
+            
+        cursor.close()
+        conn.close()
+        return {"pedidos": pedidos}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ActualizarEstado(BaseModel):
+    nuevo_estado: str
+
+@app.put("/pedido/{id_pedido}/estado")
+def actualizar_estado_pedido(id_pedido: int, estado_req: ActualizarEstado):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("UPDATE Pedidos SET estado = %s WHERE id_pedido = %s", 
+                       (estado_req.nuevo_estado, id_pedido))
+        conn.commit()
+        
+        cursor.close()
+        conn.close()
+        return {"mensaje": f"Pedido {id_pedido} actualizado a {estado_req.nuevo_estado}"}
+    except Exception as e:
+        if conn and conn.is_connected():
+            conn.rollback()
+            conn.close()
+        raise HTTPException(status_code=500, detail=str(e))

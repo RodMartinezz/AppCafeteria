@@ -35,3 +35,6 @@ CREATE TABLE Detalle_Pedidos (
     FOREIGN KEY (id_pedido) REFERENCES Pedidos(id_pedido) ON DELETE CASCADE,
     FOREIGN KEY (id_producto) REFERENCES Productos(id_producto)
 );
+ALTER TABLE Pedidos 
+ADD COLUMN matricula VARCHAR(20) AFTER nombre_estudiante,
+ADD COLUMN metodo_pago VARCHAR(50) AFTER total;
