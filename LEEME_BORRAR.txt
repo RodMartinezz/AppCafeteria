@@ -1,0 +1,3 @@
+Borra este archivo de tu proyecto (ya no se usa, era la pestaña de ejemplo):
+app_estudiantes/app/(tabs)/explore.tsx
+Borra tambien la carpeta backend_api/__pycache__ (no debe versionarse).

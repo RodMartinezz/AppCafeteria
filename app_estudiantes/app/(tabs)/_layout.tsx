@@ -4,10 +4,15 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
+import { useActiveOrder } from '@/context/active-order';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { pedido } = useActiveOrder();
+
+  // Puntito en la pestaña "Mi pedido" cuando el pedido está listo para recoger
+  const listoParaRecoger = pedido?.estado === 'Listo';
 
   return (
     <Tabs
@@ -19,15 +24,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Menú',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="fork.knife" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="mi-pedido"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Mi pedido',
+          tabBarBadge: listoParaRecoger ? '!' : undefined,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="bag.fill" color={color} />,
         }}
       />
     </Tabs>

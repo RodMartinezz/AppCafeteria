@@ -7,20 +7,37 @@ import {
   StyleSheet, 
   TextInput, 
   Alert, 
-  SafeAreaView, 
   Modal, 
   ActivityIndicator 
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
-const API_URL = 'http://localhost:8000';
+import { API_URL } from '@/constants/api';
+import { useActiveOrder } from '@/context/active-order';
+
+interface Producto {
+  id_producto: number;
+  nombre: string;
+  precio: string | number;
+  categoria: 'Comida' | 'Bebida';
+}
+
+const ETIQUETA_ESTADO: Record<string, string> = {
+  'En Cola': 'Pendiente',
+  'Preparando': 'En preparación',
+  'Listo': '¡Listo para recoger!',
+};
 
 export default function App() {
-  const [menu, setMenu] = useState([]);
+  const router = useRouter();
+  const { pedido: pedidoActivo, iniciarSeguimiento } = useActiveOrder();
+  const [menu, setMenu] = useState<Producto[]>([]);
   const [filtro, setFiltro] = useState('Comida');
   const [nombre, setNombre] = useState('');
   const [matricula, setMatricula] = useState('');
-  const [carrito, setCarrito] = useState([]);
-  const [errorDebug, setErrorDebug] = useState(null);
+  const [carrito, setCarrito] = useState<Producto[]>([]);
+  const [errorDebug, setErrorDebug] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [enviando, setEnviando] = useState(false);
@@ -33,7 +50,7 @@ export default function App() {
       console.log("Datos recibidos:", d);
       setMenu(d.menu || []);
       setErrorDebug(null);
-    } catch (e) {
+    } catch (e: any) {
       setErrorDebug("ERROR DE CONEXIÓN: " + e.message);
       console.log(e);
     }
@@ -43,7 +60,20 @@ export default function App() {
     cargarDatos();
   }, []);
 
-  const totalCarrito = carrito.reduce((acc, item) => acc + parseFloat(item.precio), 0);
+  // [Café, Café, Torta] -> [{Café x2}, {Torta x1}]
+  const agruparCarrito = (productos: { id_producto: number }[]) => {
+    const porId: Record<number, number> = {};
+    productos.forEach(p => {
+      porId[p.id_producto] = (porId[p.id_producto] || 0) + 1;
+    });
+    return Object.entries(porId).map(([id, cantidad]) => ({
+      id_producto: Number(id),
+      cantidad,
+      notas: ""
+    }));
+  };
+
+  const totalCarrito = carrito.reduce((acc, item) => acc + Number(item.precio), 0);
 
   const abrirModalPago = () => {
     if (!nombre.trim()) {
@@ -68,7 +98,7 @@ export default function App() {
           nombre_estudiante: nombre.trim(),
           matricula: matricula.trim(),
           metodo_pago: metodoPago,
-          items: carrito.map(i => ({ id_producto: i.id_producto, cantidad: 1, notas: "" }))
+          items: agruparCarrito(carrito)
         })
       });
 
@@ -76,23 +106,17 @@ export default function App() {
 
       if (res.ok) {
         setModalVisible(false);
-        Alert.alert(
-          "✅ ¡Pedido Confirmado!",
-          `Número de Orden: #${d.numero_orden}\nEstudiante: ${nombre}\nMatrícula: ${matricula}\nMétodo de Pago: ${metodoPago}\nTotal: $${d.total.toFixed(2)}`,
-          [{ 
-            text: "Aceptar", 
-            onPress: () => {
-              setCarrito([]);
-              setNombre('');
-              setMatricula('');
-              setMetodoPago('Efectivo');
-            }
-          }]
-        );
+        // Guardamos el número de orden: desde aquí la app escucha los cambios de estado
+        await iniciarSeguimiento(d.numero_orden);
+        setCarrito([]);
+        setNombre('');
+        setMatricula('');
+        setMetodoPago('Efectivo');
+        router.navigate('/mi-pedido');
       } else {
-        Alert.alert("Error", d.detail || "No se pudo procesar el pedido.");
+        Alert.alert("Error", typeof d.detail === 'string' ? d.detail : "Revisa los datos de tu pedido.");
       }
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "No se pudo conectar con el servidor para enviar la orden.");
     } finally {
       setEnviando(false);
@@ -103,6 +127,18 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <Text style={styles.header}>Cafetería UMG ☕</Text>
       
+      {/* Aviso de pedido en curso: toca para ver el seguimiento */}
+      {pedidoActivo && pedidoActivo.estado !== 'Entregado' && (
+        <TouchableOpacity
+          style={[styles.bannerPedido, pedidoActivo.estado === 'Listo' && styles.bannerListo]}
+          onPress={() => router.navigate('/mi-pedido')}
+        >
+          <Text style={styles.bannerTxt}>
+            Pedido #{pedidoActivo.id_pedido}: {ETIQUETA_ESTADO[pedidoActivo.estado]}  ›
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* Sección de Depuración / Error */}
       {errorDebug && (
         <View style={styles.errorBox}>
@@ -157,7 +193,7 @@ export default function App() {
           <View style={styles.card}>
             <View style={{ flex: 1 }}>
               <Text style={styles.nom}>{item.nombre}</Text>
-              <Text style={styles.precio}>${parseFloat(item.precio).toFixed(2)}</Text>
+              <Text style={styles.precio}>${Number(item.precio).toFixed(2)}</Text>
             </View>
             <TouchableOpacity 
               onPress={() => setCarrito([...carrito, item])} 
@@ -236,7 +272,10 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, padding: 20, backgroundColor: '#f9f9f9', paddingTop: 40 },
+  safe: { flex: 1, padding: 20, backgroundColor: '#f9f9f9' },
+  bannerPedido: { backgroundColor: '#007AFF', padding: 12, borderRadius: 10, marginBottom: 12 },
+  bannerListo: { backgroundColor: '#34C759' },
+  bannerTxt: { color: '#fff', fontWeight: '700', textAlign: 'center' },
   header: { fontSize: 26, fontWeight: 'bold', textAlign: 'center', marginBottom: 15 },
   errorBox: { backgroundColor: '#ffebee', padding: 10, borderRadius: 8, marginBottom: 12 },
   errorTxt: { color: 'red', textAlign: 'center', fontSize: 13 },
