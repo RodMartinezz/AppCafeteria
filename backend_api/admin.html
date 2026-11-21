@@ -16,8 +16,11 @@
 <body>
 
     <div class="container mt-4">
-        <h2 class="text-warning fw-bold mb-4">👨‍🍳 Pedidos Activos en Cocina</h2>
-        
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-warning fw-bold m-0">👨‍🍳 Pedidos Activos en Cocina</h2>
+            <span id="indicador" class="badge bg-secondary">Conectando…</span>
+        </div>
+
         <div id="contenedor-pedidos" class="row g-3">
             <div class="col-12 text-center text-muted mt-5">
                 <div class="spinner-border text-light mb-2"></div>
@@ -27,92 +30,125 @@
     </div>
 
     <script>
-        // La dirección de tu servidor Python local
-        const API_URL = "http://localhost:8000";
+        // Abierto desde http://<IP>:8000/admin  -> usa el mismo servidor (sin IP fija).
+        // Abierto como archivo (file://)        -> usa la IP de abajo.
+        const API_URL = location.protocol.startsWith("http")
+            ? location.origin
+            : "http://192.168.100.182:8000";
+        const WS_URL = API_URL.replace(/^http/, "ws");
+
+        // El nombre y las notas los escribe el alumno: se escapan para evitar inyección de HTML
+        function esc(texto) {
+            const d = document.createElement("div");
+            d.textContent = texto ?? "";
+            return d.innerHTML;
+        }
+
+        function pintarIndicador(enVivo) {
+            const el = document.getElementById("indicador");
+            el.className = "badge " + (enVivo ? "bg-success" : "bg-warning text-dark");
+            el.textContent = enVivo ? "🟢 En vivo" : "🟠 Reconectando… (actualizando cada 5 s)";
+        }
 
         async function cargarPedidos() {
             try {
-                // Hacemos una petición GET a la ruta que agregamos en Python
                 const respuesta = await fetch(`${API_URL}/pedidos_activos`);
+                if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
                 const data = await respuesta.json();
-                
+
                 const contenedor = document.getElementById("contenedor-pedidos");
-                contenedor.innerHTML = ""; // Limpiar pantalla
 
                 if (data.pedidos.length === 0) {
                     contenedor.innerHTML = "<h4 class='text-center text-muted col-12 mt-5'>No hay pedidos pendientes 😴</h4>";
                     return;
                 }
 
-                // Recorremos cada pedido que nos manda MySQL
-                data.pedidos.forEach(p => {
-                    // Preparamos la lista de platillos
-                    let itemsHtml = "";
-                    p.items.forEach(item => {
-                        let nota = item.notas ? `<small class="text-info d-block">Nota: ${item.notas}</small>` : "";
-                        itemsHtml += `<li><b>${item.cantidad}x</b> ${item.nombre} ${nota}</li>`;
-                    });
+                contenedor.innerHTML = data.pedidos.map(p => {
+                    const itemsHtml = p.items.map(item => {
+                        const nota = item.notas ? `<small class="text-info d-block">Nota: ${esc(item.notas)}</small>` : "";
+                        return `<li><b>${item.cantidad}x</b> ${esc(item.nombre)} ${nota}</li>`;
+                    }).join("");
 
-                    // Lógica visual del botón y colores según el estado en la BD
+                    // Color y botón según el estado en la BD
                     let claseColor = "estado-encola";
-                    let botonHtml = `<button class="btn btn-warning w-100 fw-bold mt-3" onclick="cambiarEstado(${p.id_pedido}, 'Preparando')">🔥 Empezar a Preparar</button>`;
+                    let boton = `<button class="btn btn-warning w-100 fw-bold mt-3" onclick="cambiarEstado(this, ${p.id_pedido}, 'Preparando')">🔥 Empezar a Preparar</button>`;
 
                     if (p.estado === "Preparando") {
                         claseColor = "estado-preparando";
-                        botonHtml = `<button class="btn btn-success w-100 fw-bold mt-3" onclick="cambiarEstado(${p.id_pedido}, 'Listo')">✅ Marcar como Listo</button>`;
+                        boton = `<button class="btn btn-success w-100 fw-bold mt-3" onclick="cambiarEstado(this, ${p.id_pedido}, 'Listo')">✅ Marcar como Listo</button>`;
                     } else if (p.estado === "Listo") {
                         claseColor = "estado-listo";
-                        botonHtml = `<button class="btn btn-secondary w-100 fw-bold mt-3" onclick="cambiarEstado(${p.id_pedido}, 'Entregado')">📦 Entregar al Alumno</button>`;
+                        boton = `<button class="btn btn-secondary w-100 fw-bold mt-3" onclick="cambiarEstado(this, ${p.id_pedido}, 'Entregado')">📦 Entregar al Alumno</button>`;
                     }
 
-                    // Formatear la fecha
-                    let hora = new Date(p.fecha_hora).toLocaleTimeString();
+                    const hora = new Date(p.fecha_hora).toLocaleTimeString();
 
-                    const card = `
+                    return `
                         <div class="col-12 col-md-6 col-lg-4">
                             <div class="card text-white card-pedido ${claseColor} shadow">
                                 <div class="card-body">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h5 class="card-title text-warning m-0">#${p.id_pedido} - ${p.nombre_estudiante}</h5>
+                                        <h5 class="card-title text-warning m-0">#${p.id_pedido} - ${esc(p.nombre_estudiante)}</h5>
                                         <span class="badge bg-light text-dark">${hora}</span>
                                     </div>
-                                    <h6 class="text-muted">Matrícula: ${p.matricula}</h6>
+                                    <h6 class="text-muted">Matrícula: ${esc(p.matricula)}</h6>
                                     <hr class="border-secondary">
-                                    <ul class="fs-5 ps-3">
-                                        ${itemsHtml}
-                                    </ul>
-                                    ${botonHtml}
+                                    <ul class="fs-5 ps-3">${itemsHtml}</ul>
+                                    ${boton}
                                 </div>
                             </div>
-                        </div>
-                    `;
-                    contenedor.innerHTML += card;
-                });
+                        </div>`;
+                }).join("");
             } catch (error) {
                 console.error("Error conectando con el servidor:", error);
             }
         }
 
-        // Función para actualizar el estado haciendo un PUT al servidor
-        async function cambiarEstado(id_pedido, nuevoEstado) {
+        // PUT al servidor; el servidor avisa por WebSocket al celular del alumno
+        async function cambiarEstado(boton, id_pedido, nuevoEstado) {
+            boton.disabled = true; // evita doble clic
             try {
-                await fetch(`${API_URL}/pedido/${id_pedido}/estado`, {
+                const res = await fetch(`${API_URL}/pedido/${id_pedido}/estado`, {
                     method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ nuevo_estado: nuevoEstado })
                 });
-                cargarPedidos(); // Recargar la lista inmediatamente
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    alert("No se pudo actualizar: " + (typeof err.detail === "string" ? err.detail : res.status));
+                }
             } catch (error) {
-                alert("Error al actualizar el estado");
+                alert("Error de red al actualizar el estado");
             }
+            cargarPedidos();
         }
 
-        // Consultar a la base de datos automáticamente cada 3 segundos
-        setInterval(cargarPedidos, 3000);
-        cargarPedidos(); // Cargar la primera vez al abrir la página
+        // --- Tiempo real: el servidor avisa cuando hay algo nuevo ---
+        let ws = null;
+        let reintento = 0;
 
+        function conectarWS() {
+            ws = new WebSocket(`${WS_URL}/ws/cocina`);
+            ws.onopen = () => { reintento = 0; pintarIndicador(true); cargarPedidos(); };
+            ws.onmessage = (e) => {
+                const msg = JSON.parse(e.data);
+                if (msg.tipo === "actualizar") cargarPedidos();
+            };
+            ws.onclose = () => {
+                pintarIndicador(false);
+                reintento = Math.min(reintento + 1, 5);
+                setTimeout(conectarWS, reintento * 1000);
+            };
+            ws.onerror = () => ws.close();
+        }
+
+        // Respaldo: si el WebSocket está caído, consulta cada 5 segundos
+        setInterval(() => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) cargarPedidos();
+        }, 5000);
+
+        cargarPedidos();
+        conectarWS();
     </script>
 </body>
 </html>

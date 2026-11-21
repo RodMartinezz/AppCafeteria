@@ -40,9 +40,14 @@ cd backend_api
 # Activar entorno virtual / Activate venv
 .\.venv\Scripts\activate
 
+# Instalar dependencias (incluye 'websockets' para el tiempo real)
+pip install -r requirements.txt
+
 # Iniciar servidor / Start Server
 python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Panel de cocina (KDS): abre `http://<IP-de-tu-PC>:8000/admin` en el navegador de la cocina.
 ### 2. Frontend Setup (Terminal 2)
 ```bash
 # Navegar a la carpeta / Navigate to folder
@@ -57,11 +62,29 @@ npx expo start --tunnel
 | :--- | :--- | :--- |
 | **Network Request Failed** | IP mismatch (IP cambió) | Update `API_URL` in `index.tsx` with your current IPv4. |
 | **AbortError** | Server Offline (Servidor apagado) | Ensure the Python terminal shows "Application startup complete". |
-| **No module named uvicorn** | Venv issues (Entorno virtual) | Run `pip install fastapi uvicorn mysql-connector-python`. |
+| **No module named uvicorn** | Venv issues (Entorno virtual) | Run `pip install -r requirements.txt`. |
+| **"No supported WebSocket library detected"** | Falta `websockets` | `pip install "uvicorn[standard]"` (la app sigue funcionando por polling, pero sin avisos instantáneos). |
+| **La app no encuentra el servidor** | IP distinta | La app detecta la IP de tu PC sola; si usas `--tunnel`, crea `app_estudiantes/.env` con `EXPO_PUBLIC_API_URL=http://TU_IP:8000`. |
 | **Connection Refused** | Firewall blocking (Bloqueo) | Disable Windows Firewall or add an inbound rule for port 8000. |
 
 
 
+
+## 🔔 Seguimiento del pedido en tiempo real
+
+Estados en la BD → lo que ve el alumno:
+
+| BD (`Pedidos.estado`) | App del alumno |
+| :--- | :--- |
+| `En Cola` | Pendiente |
+| `Preparando` | En preparación |
+| `Listo` | Listo para recoger |
+| `Entregado` | Entregado |
+
+* La cocina cambia el estado con `PUT /pedido/{id}/estado` (solo se permite avanzar/corregir un paso a la vez).
+* El servidor avisa por **WebSocket** (`/ws/pedido/{id}` para el alumno, `/ws/cocina` para el KDS).
+* Si el WebSocket falla, la app consulta `GET /pedido/{id}` cada 4 s (respaldo por polling).
+* Pruebas del backend: `cd backend_api && python -m pytest test_tiempo_real.py -v`
 
 📊 Database Schema (SQL)
 El sistema utiliza una estructura relacional de tres tablas principales:
