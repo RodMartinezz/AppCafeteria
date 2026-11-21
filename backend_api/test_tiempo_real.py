@@ -66,7 +66,8 @@ def cliente(monkeypatch):
     monkeypatch.setattr(main, "cambiar_estado_db", bd.cambiar)
     main.gestor.por_pedido.clear()
     main.gestor.cocina.clear()
-    with TestClient(main.app) as c:
+    # Las rutas de cocina/admin exigen el token de administrador
+    with TestClient(main.app, headers={"X-Admin-Token": main.ADMIN_TOKEN}) as c:
         yield c
 
 
@@ -93,7 +94,7 @@ def test_alumno_recibe_cada_cambio_de_estado(cliente):
 
 
 def test_cocina_se_entera_de_pedido_nuevo_y_de_cambios(cliente):
-    with cliente.websocket_connect("/ws/cocina") as cocina:
+    with cliente.websocket_connect(f"/ws/cocina?token={main.ADMIN_TOKEN}") as cocina:
         numero = cliente.post("/ordenar", json=PEDIDO).json()["numero_orden"]
         assert cocina.receive_json() == {"tipo": "actualizar"}
         cliente.put(f"/pedido/{numero}/estado", json={"nuevo_estado": "Preparando"})
@@ -106,6 +107,16 @@ def test_estado_invalido_o_salto_de_estado_se_rechaza(cliente):
     # De 'En Cola' no se puede saltar directo a 'Listo'
     assert cliente.put(f"/pedido/{numero}/estado", json={"nuevo_estado": "Listo"}).status_code == 409
     assert cliente.put("/pedido/999/estado", json={"nuevo_estado": "Preparando"}).status_code == 404
+
+
+def test_cocina_exige_token(cliente):
+    sin_token = TestClient(main.app)
+    assert sin_token.get("/pedidos_activos").status_code == 401
+    assert sin_token.put("/pedido/1/estado", json={"nuevo_estado": "Preparando"}).status_code == 401
+    with cliente.websocket_connect("/ws/cocina?token=incorrecto") as ws:
+        with pytest.raises(Exception) as exc:
+            ws.receive_json()
+        assert getattr(exc.value, "code", None) == 4401
 
 
 def test_polling_de_respaldo(cliente):

@@ -1,6 +1,8 @@
 fastapi
 uvicorn[standard]
 mysql-connector-python
-# Solo para correr las pruebas (test_tiempo_real.py):
+python-multipart
+openpyxl
+# Solo para correr las pruebas:
 pytest
 httpx

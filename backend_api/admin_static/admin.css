@@ -1,0 +1,38 @@
+body { min-height: 100vh; }
+
+/* Cocina */
+.card-pedido { border-left: 8px solid; }
+.estado-encola { border-left-color: #dc3545; }      /* rojo: pendiente */
+.estado-preparando { border-left-color: #ffc107; }  /* amarillo: preparando */
+.estado-listo { border-left-color: #198754; }       /* verde: listo */
+
+/* Tablas editables en línea */
+#prod-tabla input.form-control,
+#prod-tabla select.form-select { min-width: 0; }
+#prod-tabla .celda-nombre { background: transparent; border-color: transparent; }
+#prod-tabla .celda-nombre:hover, #prod-tabla .celda-nombre:focus { background: var(--bs-body-bg); border-color: var(--bs-border-color); }
+#prod-tabla tr.oculto td { opacity: .55; }
+#prod-tabla tr.guardando td { background: rgba(255, 193, 7, .08); }
+#prod-tabla tr.error td { background: rgba(220, 53, 69, .15); }
+
+/* Diálogos nativos */
+dialog { background: var(--bs-body-bg); color: var(--bs-body-color); border: 1px solid var(--bs-border-color); border-radius: .75rem; padding: 0; max-width: 95vw; }
+dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.dlg-ancho { width: min(1100px, 95vw); }
+.tabla-scroll { max-height: 48vh; overflow: auto; border: 1px solid var(--bs-border-color); border-radius: .5rem; }
+.tabla-scroll thead th { position: sticky; top: 0; background: var(--bs-tertiary-bg); z-index: 1; }
+
+/* Importación */
+tr.fila-error td { background: rgba(220, 53, 69, .12); }
+tr.fila-revisar td { background: rgba(255, 193, 7, .12); }
+tr.fila-ignorada td { opacity: .5; }
+.sugerida { font-size: .7rem; }
+
+/* Avisos */
+#toasts { position: fixed; right: 1rem; bottom: 1rem; display: flex; flex-direction: column; gap: .5rem; z-index: 2000; }
+.toast-msg { padding: .6rem .9rem; border-radius: .5rem; color: #fff; box-shadow: 0 4px 12px rgba(0, 0, 0, .4); max-width: 360px; font-size: .9rem; }
+.toast-ok { background: #198754; }
+.toast-error { background: #b02a37; }
+
+#pestanas .nav-link { color: var(--bs-body-color); }
+#pestanas .nav-link.active { background: #ffc107; color: #212529; font-weight: 600; }

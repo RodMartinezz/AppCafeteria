@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,10 +8,11 @@ import {
   TextInput, 
   Alert, 
   Modal, 
-  ActivityIndicator 
+  ActivityIndicator,
+  AppState
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 import { API_URL } from '@/constants/api';
 import { useActiveOrder } from '@/context/active-order';
@@ -22,6 +23,12 @@ interface Producto {
   precio: string | number;
   categoria: 'Comida' | 'Bebida';
 }
+
+const REFRESCO_MENU_MS = 30000; // el admin puede cambiar precios/disponibilidad en cualquier momento
+
+// "Café" == "cafe": búsqueda sin acentos ni mayúsculas
+const normalizar = (t: string) =>
+  t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
 const ETIQUETA_ESTADO: Record<string, string> = {
   'En Cola': 'Pendiente',
@@ -41,24 +48,69 @@ export default function App() {
   const [modalVisible, setModalVisible] = useState(false);
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [enviando, setEnviando] = useState(false);
+  const [busqueda, setBusqueda] = useState('');
+  const [menuCargado, setMenuCargado] = useState(false);
+  const [refrescando, setRefrescando] = useState(false);
+  const [avisoCarrito, setAvisoCarrito] = useState<string | null>(null);
 
-  const cargarDatos = async () => {
+  // silencioso = refresco automático: no parpadea el aviso de "Intentando conectar..."
+  const cargarDatos = useCallback(async (silencioso = false) => {
     try {
-      setErrorDebug("Intentando conectar...");
+      if (!silencioso) setErrorDebug("Intentando conectar...");
       const res = await fetch(`${API_URL}/menu`);
+      if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
       const d = await res.json();
-      console.log("Datos recibidos:", d);
       setMenu(d.menu || []);
+      setMenuCargado(true);
       setErrorDebug(null);
     } catch (e: any) {
-      setErrorDebug("ERROR DE CONEXIÓN: " + e.message);
-      console.log(e);
+      // En un refresco automático solo avisamos si todavía no hay menú que mostrar
+      if (!silencioso || !menuCargado) setErrorDebug("ERROR DE CONEXIÓN: " + e.message);
     }
+  }, [menuCargado]);
+
+  // Menú al día: al abrir la pestaña, cada 30 s mientras está a la vista y al volver a la app
+  useFocusEffect(
+    useCallback(() => {
+      cargarDatos();
+      const timer = setInterval(() => cargarDatos(true), REFRESCO_MENU_MS);
+      const suscripcion = AppState.addEventListener('change', (estado) => {
+        if (estado === 'active') cargarDatos(true);
+      });
+      return () => {
+        clearInterval(timer);
+        suscripcion.remove();
+      };
+    }, [cargarDatos])
+  );
+
+  const alRefrescar = async () => {
+    setRefrescando(true);
+    await cargarDatos(true);
+    setRefrescando(false);
   };
 
+  // Si el admin cambió un precio o apagó un producto, el carrito se corrige solo y se avisa
   useEffect(() => {
-    cargarDatos();
-  }, []);
+    if (!menuCargado) return;
+    const vigentes = new Map(menu.map(p => [p.id_producto, p]));
+    let quitados = 0;
+    let cambiados = 0;
+    const nuevo: Producto[] = [];
+    for (const item of carrito) {
+      const vigente = vigentes.get(item.id_producto);
+      if (!vigente) { quitados++; continue; }
+      if (Number(vigente.precio) !== Number(item.precio)) cambiados++;
+      nuevo.push(vigente);
+    }
+    if (quitados || cambiados) {
+      setCarrito(nuevo);
+      const partes = [];
+      if (cambiados) partes.push(`${cambiados} producto(s) cambiaron de precio`);
+      if (quitados) partes.push(`${quitados} ya no está(n) disponible(s)`);
+      setAvisoCarrito('Actualizamos tu carrito: ' + partes.join(' y ') + '.');
+    }
+  }, [menu, menuCargado, carrito]);
 
   // [Café, Café, Torta] -> [{Café x2}, {Torta x1}]
   const agruparCarrito = (productos: { id_producto: number }[]) => {
@@ -98,7 +150,9 @@ export default function App() {
           nombre_estudiante: nombre.trim(),
           matricula: matricula.trim(),
           metodo_pago: metodoPago,
-          items: agruparCarrito(carrito)
+          items: agruparCarrito(carrito),
+          // Lo que el alumno vio en pantalla: si el precio cambió, el servidor lo rechaza (409)
+          total_esperado: Number(totalCarrito.toFixed(2))
         })
       });
 
@@ -115,6 +169,11 @@ export default function App() {
         router.navigate('/mi-pedido');
       } else {
         Alert.alert("Error", typeof d.detail === 'string' ? d.detail : "Revisa los datos de tu pedido.");
+        // 409 = cambió un precio · 400 = un producto ya no está: se vuelve a leer el menú
+        if (res.status === 409 || res.status === 400) {
+          setModalVisible(false);
+          cargarDatos(true);
+        }
       }
     } catch {
       Alert.alert("Error", "No se pudo conectar con el servidor para enviar la orden.");
@@ -143,7 +202,7 @@ export default function App() {
       {errorDebug && (
         <View style={styles.errorBox}>
           <Text style={styles.errorTxt}>{errorDebug}</Text>
-          <TouchableOpacity onPress={cargarDatos} style={styles.btnRetry}>
+          <TouchableOpacity onPress={() => cargarDatos()} style={styles.btnRetry}>
             <Text style={styles.txtRetry}>REINTENTAR CONEXIÓN</Text>
           </TouchableOpacity>
         </View>
@@ -166,6 +225,24 @@ export default function App() {
         onChangeText={setMatricula} 
       />
       
+      {/* Aviso cuando el admin cambió precios/disponibilidad de lo que ya estaba en el carrito */}
+      {avisoCarrito && (
+        <TouchableOpacity style={styles.avisoCarrito} onPress={() => setAvisoCarrito(null)}>
+          <Text style={styles.avisoCarritoTxt}>⚠️ {avisoCarrito}  (toca para cerrar)</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Buscador */}
+      <TextInput
+        style={styles.input}
+        placeholder="🔍 Buscar producto..."
+        placeholderTextColor="#888"
+        value={busqueda}
+        onChangeText={setBusqueda}
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+      />
+
       {/* Pestañas de Filtrado */}
       <View style={styles.tabs}>
         <TouchableOpacity 
@@ -184,10 +261,18 @@ export default function App() {
 
       {/* Catálogo de Productos */}
       <FlatList
-        data={menu.filter(item => item.categoria === filtro)}
+        data={menu.filter(item =>
+          item.categoria === filtro &&
+          (!busqueda.trim() || normalizar(item.nombre).includes(normalizar(busqueda)))
+        )}
         keyExtractor={(item) => item.id_producto.toString()}
+        refreshing={refrescando}
+        onRefresh={alRefrescar}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
-          <Text style={styles.empty}>No hay productos en esta categoría.</Text>
+          <Text style={styles.empty}>
+            {busqueda.trim() ? 'Ningún producto coincide con tu búsqueda.' : 'No hay productos en esta categoría.'}
+          </Text>
         }
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -275,6 +360,8 @@ const styles = StyleSheet.create({
   safe: { flex: 1, padding: 20, backgroundColor: '#f9f9f9' },
   bannerPedido: { backgroundColor: '#007AFF', padding: 12, borderRadius: 10, marginBottom: 12 },
   bannerListo: { backgroundColor: '#34C759' },
+  avisoCarrito: { backgroundColor: '#FFF4E5', borderColor: '#FF9500', borderWidth: 1, padding: 10, borderRadius: 10, marginBottom: 10 },
+  avisoCarritoTxt: { color: '#8A4B00', fontSize: 13 },
   bannerTxt: { color: '#fff', fontWeight: '700', textAlign: 'center' },
   header: { fontSize: 26, fontWeight: 'bold', textAlign: 'center', marginBottom: 15 },
   errorBox: { backgroundColor: '#ffebee', padding: 10, borderRadius: 8, marginBottom: 12 },
