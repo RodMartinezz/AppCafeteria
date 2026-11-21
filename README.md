@@ -8,104 +8,37 @@
 
 ---
 
-## 🇪🇸 Resumen del Proyecto (Spanish)
-Este sistema permite a los estudiantes de la **Universidad Marista de Guadalajara** realizar pedidos desde su dispositivo móvil. La aplicación separa automáticamente el menú en **Comidas** y **Bebidas**, gestionando las órdenes en tiempo real mediante una base de datos centralizada en MySQL.
+## 🇪🇸 Resumen del Proyecto
+Sistema Full-Stack para realizar y gestionar pedidos en la cafetería de la **Universidad Marista de Guadalajara (UMG)**. Incluye una aplicación para estudiantes (menú filtrado por **Comidas** y **Bebidas**, buscador, carrito y seguimiento en tiempo real de su orden) y un panel de administración/cocina para gestionar pedidos, catálogo desde Excel/CSV e historial de ventas.
 
 ### 🛠️ Arquitectura Técnica
-* **Base de Datos:** MySQL (XAMPP) para persistencia de datos.
-* **Backend:** API REST construida con FastAPI (Python).
-* **Frontend:** Aplicación móvil desarrollada en React Native con Expo Go.
+- **Base de Datos:** MySQL / MariaDB (mediante XAMPP en entorno local) con pool de conexiones y transacciones.
+- **Backend:** API REST + WebSockets construida con **FastAPI** (Python).
+- **Frontend Estudiantes:** Aplicación móvil/web desarrollada en **React Native** con **Expo** y **Expo Router**.
+- **Panel de Administración y Cocina (KDS):** Interfaz web servida en `/admin` con módulos en `admin_static/` protegidos por token de administrador.
 
 ---
 
-## 🇺🇸 Project Overview (English)
-A Full-Stack ordering system designed for university students. It features a clean, tab-based interface to browse products, manage a shopping cart, and send orders directly to the kitchen staff via a robust Python backend.
+## 🇺🇸 Project Overview
+A Full-Stack ordering system for university students at Universidad Marista de Guadalajara. It provides menu browsing, category filtering (Food vs. Drinks), real-time order tracking, and an administrative dashboard for kitchen operations, catalog management (including Excel/CSV import), and sales history.
 
 ### 🌟 Key Features
-* **Real-time synchronization** between mobile app and MySQL database.
-* **Category filtering** (Food vs. Drinks) for better UX.
-* **Identifier-based ordering** using name or student ID.
+- **Real-time order tracking** via WebSockets with automatic polling fallback.
+- **Admin dashboard** with three views: **Cocina** (Kitchen), **Productos** (Catalog & Excel/CSV import), and **Historial** (Sales history & CSV export).
+- **Price & catalog protection** keeping historical order prices intact and logging price changes.
 
 ---
 
-## 🚀 Guía de Ejecución / Execution Guide
+## 🔐 Autenticación de Administrador (`ADMIN_TOKEN`)
 
-### 1. Backend Setup (Terminal 1)
-```bash
-# Navegar a la carpeta / Navigate to folder
-cd backend_api    
+Las rutas y vistas de administración y cocina (`/admin`, `/pedidos_activos`, cambios de estado y `/ws/cocina`) requieren una clave de administrador enviada mediante la cabecera `X-Admin-Token`.
 
+- **Por defecto:** Si no defines la variable, el backend usa un valor por defecto (`umg-cocina`). **Cámbiala en tu entorno local/producción** antes de arrancar el servidor.
+- **No subas claves reales al repositorio:** Configura siempre la clave en tu variable de entorno local.
 
+```powershell
+# PowerShell (sesión actual)
+$env:ADMIN_TOKEN="tu-clave-de-administrador"
 
-# Activar entorno virtual / Activate venv
-.\.venv\Scripts\activate
-
-# Instalar dependencias (incluye 'websockets' para el tiempo real)
-pip install -r requirements.txt
-
-# Iniciar servidor / Start Server
-python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Panel de cocina (KDS): abre `http://<IP-de-tu-PC>:8000/admin` en el navegador de la cocina.
-### 2. Frontend Setup (Terminal 2)
-```bash
-# Navegar a la carpeta / Navigate to folder
-cd app_estudiantes
-
-# Iniciar Expo con túnel / Start Expo with tunnel
-npx expo start --tunnel
-```
-### ⚠️ Troubleshooting / Solución de Problemas
-
-| Error | Cause / Causa | Solution / Solución |
-| :--- | :--- | :--- |
-| **Network Request Failed** | IP mismatch (IP cambió) | Update `API_URL` in `index.tsx` with your current IPv4. |
-| **AbortError** | Server Offline (Servidor apagado) | Ensure the Python terminal shows "Application startup complete". |
-| **No module named uvicorn** | Venv issues (Entorno virtual) | Run `pip install -r requirements.txt`. |
-| **"No supported WebSocket library detected"** | Falta `websockets` | `pip install "uvicorn[standard]"` (la app sigue funcionando por polling, pero sin avisos instantáneos). |
-| **La app no encuentra el servidor** | IP distinta | La app detecta la IP de tu PC sola; si usas `--tunnel`, crea `app_estudiantes/.env` con `EXPO_PUBLIC_API_URL=http://TU_IP:8000`. |
-| **Connection Refused** | Firewall blocking (Bloqueo) | Disable Windows Firewall or add an inbound rule for port 8000. |
-
-
-
-
-## 🔔 Seguimiento del pedido en tiempo real
-
-Estados en la BD → lo que ve el alumno:
-
-| BD (`Pedidos.estado`) | App del alumno |
-| :--- | :--- |
-| `En Cola` | Pendiente |
-| `Preparando` | En preparación |
-| `Listo` | Listo para recoger |
-| `Entregado` | Entregado |
-
-* La cocina cambia el estado con `PUT /pedido/{id}/estado` (solo se permite avanzar/corregir un paso a la vez).
-* El servidor avisa por **WebSocket** (`/ws/pedido/{id}` para el alumno, `/ws/cocina` para el KDS).
-* Si el WebSocket falla, la app consulta `GET /pedido/{id}` cada 4 s (respaldo por polling).
-* Pruebas del backend: `cd backend_api && python -m pytest test_tiempo_real.py -v`
-
-📊 Database Schema (SQL)
-El sistema utiliza una estructura relacional de tres tablas principales:
-
-Productos: Catálogo de alimentos y bebidas.
-
-Pedidos: Cabecera de la orden con nombre y total.
-
-Detalle_Pedidos: Desglose de productos por orden.
-
-Developed by: Rodrigo Martínez Martínez
-
-Major: Ingeniería en Cibernética (8vo Semestre)
-
-##UPDATES
-
-esta nueva version ya cuenta con la base de datos con los precios reales de la cafeteria
-ya cuenta con orden de pedidos para tener un mejor control de lo que se pide y quien
-la bd no colapsa con mas de 5 pedidos
-expo actualizado a la ultima version
-
-Institution: Universidad Marista de Guadalajara (UMG)
-
-ITS NOT FINISH YET
+:: Windows CMD
+set ADMIN_TOKEN=tu-clave-de-administrador
