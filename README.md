@@ -107,7 +107,7 @@ El sistema utiliza una estructura relacional de tres tablas principales:
 
 ---
 
-**Developed by:** Rodrigo Martínez Martínez  
+**Developed by:** Rodrigo Martínez Martínez, Ulises Josell Gonzales Lopez
 **Major:** Ingeniería en Cibernética (8vo Semestre)  
 **Institution:** Universidad Marista de Guadalajara (UMG)  
 
